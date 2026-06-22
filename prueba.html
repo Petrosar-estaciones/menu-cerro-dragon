@@ -421,12 +421,16 @@ async function cargarNomina() {
 
     NOMINA = {};
     rows.forEach(row => {
-      const cols     = parseCSVLine(row);
-      const legajo   = normLegajo(cols[0]);
-      const nombre   = (cols[1] || '').trim();
-      const apellido = (cols[2] || '').trim();
+      const cols   = parseCSVLine(row);
+      const legajo = normLegajo(cols[0]);
       if (!legajo) return;
-      NOMINA[legajo] = { nombre, apellido };
+      const nombre = (cols[1] || '').trim();
+      const col3   = (cols[2] || '').trim();
+      // La 3ra columna puede ser Apellido (texto) o un DNI (solo números) según cómo esté armada la planilla.
+      // Si parece DNI, no lo sumamos al nombre que se muestra/autocompleta.
+      const esDNI = /^[\d.\-]{6,}$/.test(col3);
+      const nombreCompleto = (!esDNI && col3) ? `${nombre} ${col3}`.trim() : nombre;
+      NOMINA[legajo] = { nombreCompleto, dni: esDNI ? col3 : '' };
     });
   } catch (e) {
     console.error('No se pudo cargar la nómina', e);
@@ -453,11 +457,10 @@ function checkLegajo() {
 
   const reg = NOMINA[val];
   if (reg) {
-    empleadoValidado = { legajo: val, nombre: reg.nombre, apellido: reg.apellido };
-    const nombreCompleto = `${reg.nombre} ${reg.apellido}`.trim();
-    if (nombreCompleto) nombreInput.value = nombreCompleto;
+    empleadoValidado = { legajo: val, nombre: reg.nombreCompleto };
+    if (reg.nombreCompleto) nombreInput.value = reg.nombreCompleto;
     statusEl.className = 'legajo-status ok';
-    statusEl.innerHTML = `✓ Empleado validado: <strong>${nombreCompleto}</strong> — 20% OFF aplicado`;
+    statusEl.innerHTML = `✓ Empleado validado: <strong>${reg.nombreCompleto}</strong> — 20% OFF aplicado`;
   } else {
     empleadoValidado = null;
     statusEl.className = 'legajo-status warn';
